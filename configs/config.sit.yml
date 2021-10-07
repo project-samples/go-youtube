@@ -1,0 +1,6 @@
+mongo:
+  uri: mongodb+srv://dbUser:Demoaccount1@projectdemo.g0lah.mongodb.net
+  database: masterdata_sit
+
+middleware:
+  log: false
