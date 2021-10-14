@@ -3,21 +3,22 @@ package app
 import (
 	"context"
 	"database/sql"
-
 	"github.com/core-go/health"
-
 	cas "github.com/core-go/health/cassandra"
+	"github.com/core-go/video/cassandra"
+	"github.com/core-go/video/handler"
+	cassInit "github.com/core-go/video/init-cassandra"
+	sc "github.com/core-go/video/sync-cassandra"
+	"github.com/gocql/gocql"
+
 	"github.com/core-go/video/pg"
 	"log"
 
 	mgo "github.com/core-go/health/mongo"
 	s "github.com/core-go/health/sql"
-	"github.com/core-go/video"
-	"github.com/core-go/video/cassandra"
 	"github.com/core-go/video/category"
 	mg "github.com/core-go/video/mongo"
 	"github.com/core-go/video/sync"
-	sc "github.com/core-go/video/sync-cassandra"
 	sm "github.com/core-go/video/sync-mongo"
 	spg "github.com/core-go/video/sync-pg"
 	"github.com/core-go/video/test"
@@ -31,13 +32,13 @@ import (
 type ApplicationContext struct {
 	HealthHandler *health.Handler
 	SyncHandler   *sync.SyncHandler
-	ClientHandler *video.VideoHandler
+	ClientHandler *handler.VideoHandler
 	TubeHandler   *test.YoutubeHandler
 }
 
 func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 	var healthHandler *health.Handler
-	var clientHandler *video.VideoHandler
+	var clientHandler *handler.VideoHandler
 
 	var syncHandler *sync.SyncHandler
 
@@ -66,20 +67,21 @@ func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 		syncService := sync.NewDefaultSyncService(tubeService, repo)
 		syncHandler = sync.NewSyncHandler(syncService)
 		clientService := mg.NewMongoVideoService(mongoDb, channelCollectionName, channelSyncCollectionName, playlistCollectionName, playlistVideoCollectionName, videoCollectionName, categoryCollectionName, *tubeCategory)
-		clientHandler, _ = video.NewVideoHandler(clientService)
+		clientHandler, _ = handler.NewVideoHandler(clientService)
 		break
 	case 2:
-		cassDb, err := Db(&root)
+		cluster := gocql.NewCluster(root.Cassandra.Uri)
+		cassDb, err := cassInit.Initialize(cluster, "tube")
 		if err != nil {
 			return nil, err
 		}
-		casChecker := cas.NewHealthChecker(cassDb)
+		casChecker := cas.NewHealthChecker(cluster)
 		healthHandler = health.NewHandler(casChecker)
 		repo, _ := sc.NewCassandraVideoRepository(cassDb)
 		syncService := sync.NewDefaultSyncService(tubeService, repo)
 		syncHandler = sync.NewSyncHandler(syncService)
 		clientService, _ := cassandra.NewCassandraVideoService(cassDb, *tubeCategory)
-		clientHandler, _ = video.NewVideoHandler(clientService)
+		clientHandler, _ = handler.NewVideoHandler(clientService)
 		break
 	case 3:
 		postgreDB, err := sql.Open(root.Postgre.Driver, root.Postgre.DataSourceName)
@@ -92,7 +94,7 @@ func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 		syncService := sync.NewDefaultSyncService(tubeService, repo)
 		syncHandler = sync.NewSyncHandler(syncService)
 		clientService, _ := pg.NewPostgreVideoService(postgreDB, *tubeCategory)
-		clientHandler, _ = video.NewVideoHandler(clientService)
+		clientHandler, _ = handler.NewVideoHandler(clientService)
 		break
 	default:
 		log.Println("connection is not exist")
