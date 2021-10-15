@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-
+	m "github.com/core-go/video/mux"
 	"github.com/gorilla/mux"
 )
 
@@ -13,32 +13,15 @@ const (
 	DELETE = "DELETE"
 )
 
-func Route(r *mux.Router, context context.Context, root Root) error {
-	app, err := NewApp(context, root)
+func Route(ctx context.Context, r *mux.Router, root Root) error {
+	app, err := NewApp(ctx, root)
 	if err != nil {
 		return err
 	}
+
 	r.HandleFunc("/health", app.HealthHandler.Check).Methods(GET)
 
-	r.HandleFunc("/tube/channels", app.SyncHandler.SyncChannel).Methods(POST)
-	r.HandleFunc("/tube/playlists", app.SyncHandler.SyncPlaylist).Methods(POST)
-	r.HandleFunc("/tube/channels/subscriptions/{id}", app.SyncHandler.SyncSubscription).Methods(GET)
-
-	r.HandleFunc("/tube/channel/{params}", app.ClientHandler.GetChannel).Methods(GET)
-	r.HandleFunc("/tube/channels/list/{params}", app.ClientHandler.GetChannels).Methods(GET)
-	r.HandleFunc("/tube/playlist/{params}", app.ClientHandler.GetPlaylist).Methods(GET)
-	r.HandleFunc("/tube/playlists/list/{params}", app.ClientHandler.GetPlaylists).Methods(GET)
-	r.HandleFunc("/tube/video/{params}", app.ClientHandler.GetVideo).Methods(GET)
-	r.HandleFunc("/tube/videos/list/{params}", app.ClientHandler.GetVideos).Methods(GET)
-	r.HandleFunc("/tube/playlists", app.ClientHandler.GetChannelPlaylists).Methods(GET)
-	r.HandleFunc("/tube/videos", app.ClientHandler.GetVideosFromChannelIdOrPlaylistId).Methods(GET)
-	r.HandleFunc("/tube/category/{params}", app.ClientHandler.GetCategory).Methods(GET)
-	r.HandleFunc("/tube/channels/search", app.ClientHandler.SearchChannel).Methods(GET)
-	r.HandleFunc("/tube/playlists/search", app.ClientHandler.SearchPlaylists).Methods(GET)
-	r.HandleFunc("/tube/videos/search", app.ClientHandler.SearchVideos).Methods(GET)
-	r.HandleFunc("/tube/search", app.ClientHandler.Search).Methods(GET)
-	r.HandleFunc("/tube/videos/related", app.ClientHandler.GetRelatedVideos).Methods(GET)
-	r.HandleFunc("/tube/videos/popular", app.ClientHandler.GetPopularVideos).Methods(GET)
+	m.RegisterRoot(ctx, r, "/tube", app.SyncHandler, app.ClientHandler)
 
 	r.HandleFunc("/channel/{id}", app.TubeHandler.GetChannel).Methods(GET)
 	r.HandleFunc("/channels/{id}", app.TubeHandler.GetChannels).Methods(GET)
